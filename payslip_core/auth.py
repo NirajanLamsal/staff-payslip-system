@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import quote
 
-from .config import BASE_DIR, CONFIG_DIR
+from .config import BASE_DIR, CONFIG_DIR, ENV_FILE, load_dotenv
 from .logsetup import get_logger
 
 ADMIN_FILE = CONFIG_DIR / "admin.json"
@@ -140,11 +140,27 @@ def _secret_from_streamlit(name: str) -> str:
 
 
 def load_credentials() -> Optional[Credentials]:
-    """Environment -> Streamlit secrets -> config/admin.json. None = not configured (app stays locked)."""
-    def pick(name: str) -> str:
-        return os.environ.get(name, "").strip() or _secret_from_streamlit(name).strip()
+    """Environment (.env / os.environ) -> Streamlit secrets -> config/admin.json. None = not configured."""
+    try:
+        load_dotenv(ENV_FILE)
+    except Exception:
+        pass
 
-    user, phash, totp = pick("PAYSLIP_ADMIN_USER"), pick("PAYSLIP_ADMIN_HASH"), pick("PAYSLIP_ADMIN_TOTP")
+    def pick(*names: str) -> str:
+        for name in names:
+            v = os.environ.get(name, "").strip() or _secret_from_streamlit(name).strip()
+            if v:
+                return v
+        lower_names = {n.lower(): n for n in names}
+        for k, v in os.environ.items():
+            if k.lower() in lower_names and v.strip():
+                return v.strip()
+        return ""
+
+    user = pick("PAYSLIP_ADMIN_USER", "ENV_USERNAME", "ADMIN_USERNAME", "ADMIN_USER")
+    phash = pick("PAYSLIP_ADMIN_HASH", "ENV_PASSWORD_HASH", "ADMIN_PASSWORD_HASH", "ADMIN_HASH", "PASSWORD_HASH")
+    totp = pick("PAYSLIP_ADMIN_TOTP", "ENV_TOTP_SECRET", "ADMIN_TOTP", "ADMIN_TOTP_SECRET", "TOTP_SECRET")
+
     if user and phash:
         return Credentials(user, phash, totp)
     try:
@@ -155,6 +171,37 @@ def load_credentials() -> Optional[Credentials]:
     except (OSError, ValueError):
         pass
     return None
+
+
+def save_credentials_env(c: Credentials, path: Optional[Path] = None) -> Path:
+    """Save admin credentials directly into a protected .env file."""
+    target = path or ENV_FILE
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(target.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write("# Payslip Manager Admin Credentials\n")
+            fh.write(f"PAYSLIP_ADMIN_USER={c.username}\n")
+            fh.write(f"PAYSLIP_ADMIN_HASH={c.password_hash}\n")
+            if c.totp_secret:
+                fh.write(f"PAYSLIP_ADMIN_TOTP={c.totp_secret}\n")
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
+        os.replace(tmp, target)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+    os.environ["PAYSLIP_ADMIN_USER"] = c.username
+    os.environ["PAYSLIP_ADMIN_HASH"] = c.password_hash
+    if c.totp_secret:
+        os.environ["PAYSLIP_ADMIN_TOTP"] = c.totp_secret
+    return target
 
 
 def save_credentials_file(c: Credentials) -> Path:

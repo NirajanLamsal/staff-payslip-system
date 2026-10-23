@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Create or change the admin account for Payslip Manager.
 
-    python scripts/set_admin.py            # saves config/admin.json (kept out of git)
+    python scripts/set_admin.py            # saves to .env (kept out of git and protected)
     python scripts/set_admin.py --print    # also prints values for hosting 'Secrets' / environment variables
+    python scripts/set_admin.py --json     # saves to legacy config/admin.json
 
 The password is never saved - only a salted scrypt hash.
 """
@@ -36,6 +37,7 @@ def main() -> int:
     ap.add_argument("--print", dest="show", action="store_true",
                     help="print the values to paste into hosting secrets / environment variables")
     ap.add_argument("--no-2fa", action="store_true", help="skip the authenticator-app code (not recommended)")
+    ap.add_argument("--json", action="store_true", help="save to legacy config/admin.json instead of .env")
     args = ap.parse_args()
 
     print("Payslip Manager - admin account\n")
@@ -46,9 +48,21 @@ def main() -> int:
     pw = ask_password()
     totp = "" if args.no_2fa else auth.new_totp_secret()
     creds = auth.Credentials(user, auth.hash_password(pw), totp)
-    path = auth.save_credentials_file(creds)
+
+    if args.json:
+        path = auth.save_credentials_file(creds)
+        print(f"\nSaved to legacy {path} (owner-only file, ignored by git).")
+    else:
+        path = auth.save_credentials_env(creds)
+        if auth.ADMIN_FILE.exists():
+            try:
+                auth.ADMIN_FILE.unlink()
+                print("Removed legacy config/admin.json to keep secrets protected.")
+            except OSError:
+                pass
+        print(f"\nSaved securely to {path} (.env file, owner-only, ignored by git).")
+
     auth.STATE_FILE.unlink(missing_ok=True)  # clear any old lockout
-    print(f"\nSaved to {path} (owner-only file, ignored by git).")
 
     if totp:
         uri = auth.otpauth_uri(totp, user)

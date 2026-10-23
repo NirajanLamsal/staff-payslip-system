@@ -13,6 +13,11 @@ Read **SECURITY.md** before putting it online.
 It asks for a username and a strong password (12+ characters) and shows a QR code for an authenticator app.
 Until an admin exists, the app shows nothing but a "not set up" page.
 
+For local and hosted deployments, credentials are saved securely in `.env` (git-ignored and protected)
+instead of storing credentials in `config/admin.json`: `PAYSLIP_ADMIN_USER`, `PAYSLIP_ADMIN_HASH`, and optionally
+`PAYSLIP_ADMIN_TOTP`. Run `python scripts/set_admin.py --print` to generate or print the values. Environment
+variables / `.env` take precedence and keep your secrets safe.
+
 ## Start (Ubuntu / Linux)
 1. Extract the ZIP (right-click -> Extract Here), open a terminal in the extracted folder `PayslipWebsite`.
 2. Run: `./start.sh`

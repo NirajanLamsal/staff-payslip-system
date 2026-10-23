@@ -6,10 +6,13 @@ import pytest
 from payslip_core import auth, ui
 
 
+import os
+
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "STATE_FILE", tmp_path / "state.json")
     monkeypatch.setattr(auth, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(auth, "ENV_FILE", tmp_path / ".env")
     monkeypatch.setattr(auth.time, "sleep", lambda s: None)
 
 
@@ -88,18 +91,71 @@ def test_session_timeouts():
 
 def test_not_configured_fails_closed(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "ADMIN_FILE", tmp_path / "none.json")
-    for k in ("PAYSLIP_ADMIN_USER", "PAYSLIP_ADMIN_HASH", "PAYSLIP_ADMIN_TOTP"):
-        monkeypatch.delenv(k, raising=False)
+    for k in list(os.environ.keys()):
+        if any(term in k.upper() for term in ("PAYSLIP_ADMIN", "ENV_USER", "ENV_PASS", "TOTP_SECRET")):
+            monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(auth, "_secret_from_streamlit", lambda n: "")
     assert auth.load_credentials() is None
+
+
+def test_environment_credentials_take_precedence(tmp_path, monkeypatch):
+    monkeypatch.setattr(auth, "ADMIN_FILE", tmp_path / "admin.json")
+    auth.save_credentials_file(auth.Credentials("file-admin", "file-hash", "file-totp"))
+    monkeypatch.setenv("PAYSLIP_ADMIN_USER", "env-admin")
+    monkeypatch.setenv("PAYSLIP_ADMIN_HASH", "env-hash")
+    monkeypatch.setenv("PAYSLIP_ADMIN_TOTP", "env-totp")
+    assert auth.load_credentials() == auth.Credentials("env-admin", "env-hash", "env-totp")
+
+
+def test_dotenv_credentials_load(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text("PAYSLIP_ADMIN_USER=dotenv-user\nPAYSLIP_ADMIN_HASH=dotenv-hash\nPAYSLIP_ADMIN_TOTP=dotenv-totp\n")
+    monkeypatch.setattr(auth, "ENV_FILE", env_file)
+    for k in list(os.environ.keys()):
+        if any(term in k.upper() for term in ("PAYSLIP_ADMIN", "ENV_USER", "ENV_PASS", "TOTP_SECRET")):
+            monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(auth, "_secret_from_streamlit", lambda n: "")
+    creds = auth.load_credentials()
+    assert creds == auth.Credentials("dotenv-user", "dotenv-hash", "dotenv-totp")
+
+
+def test_dotenv_aliases_and_quote_cleaning(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        'Env_username=custom-user\n'
+        'ENV_password_hash=scrypt$custom$hash",\n'
+        'totp_secret="MYTOTPKEY"\n'
+    )
+    monkeypatch.setattr(auth, "ENV_FILE", env_file)
+    for k in list(os.environ.keys()):
+        if any(term in k.upper() for term in ("PAYSLIP_ADMIN", "ENV_USER", "ENV_PASS", "TOTP_SECRET")):
+            monkeypatch.delenv(k, raising=False)
+    monkeypatch.setattr(auth, "_secret_from_streamlit", lambda n: "")
+    creds = auth.load_credentials()
+    assert creds == auth.Credentials("custom-user", "scrypt$custom$hash", "MYTOTPKEY")
+
+
+def test_save_credentials_env(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    monkeypatch.setattr(auth, "ENV_FILE", env_file)
+    p = auth.save_credentials_env(auth.Credentials("saved-user", "saved-hash", "saved-totp"))
+    assert p.exists()
+    content = p.read_text()
+    assert "PAYSLIP_ADMIN_USER=saved-user" in content
+    assert "PAYSLIP_ADMIN_HASH=saved-hash" in content
+    assert "PAYSLIP_ADMIN_TOTP=saved-totp" in content
+    if os.name != "nt":
+        assert oct(p.stat().st_mode)[-3:] == "600"
 
 
 def test_credentials_file_private(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "ADMIN_FILE", tmp_path / "admin.json")
     p = auth.save_credentials_file(make())
-    assert oct(p.stat().st_mode)[-3:] == "600"
-    for k in ("PAYSLIP_ADMIN_USER", "PAYSLIP_ADMIN_HASH"):
-        monkeypatch.delenv(k, raising=False)
+    if os.name != "nt":
+        assert oct(p.stat().st_mode)[-3:] == "600"
+    for k in list(os.environ.keys()):
+        if any(term in k.upper() for term in ("PAYSLIP_ADMIN", "ENV_USER", "ENV_PASS", "TOTP_SECRET")):
+            monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(auth, "_secret_from_streamlit", lambda n: "")
     assert auth.load_credentials().username == "boss"
 

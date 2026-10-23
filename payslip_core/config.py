@@ -7,18 +7,69 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .util import norm_header
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_DIR = BASE_DIR / "config"
+ENV_FILE = BASE_DIR / ".env"
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
 SITE_LOGO = CONFIG_DIR / "logo.png"
 ASSETS_DIR = BASE_DIR / "assets"
 DEFAULT_LOGO = ASSETS_DIR / "default_logo.png"
 OUTPUT_DIR = BASE_DIR / "output"
 LOG_DIR = BASE_DIR / "logs"
+
+
+def load_dotenv(env_path: Optional[Path] = None, override: bool = False) -> Dict[str, str]:
+    """Load key-value pairs from .env into os.environ if not already set.
+
+    Zero-dependency, tolerant parser supporting comments, export prefix,
+    quoted values, and accidental trailing commas from json copy-paste.
+    """
+    path = env_path or ENV_FILE
+    loaded: Dict[str, str] = {}
+    if not path.exists() or not path.is_file():
+        return loaded
+
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError:
+        return loaded
+
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].strip()
+        if "=" not in line:
+            continue
+        key, sep, val = line.partition("=")
+        key = key.strip()
+        val = val.strip()
+        # Clean trailing commas from JSON copy-paste
+        if val.endswith(","):
+            val = val[:-1].strip()
+        # Clean matched enclosing quotes or stray trailing quotes
+        if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+            val = val[1:-1]
+        elif val.endswith('"') and not val.startswith('"'):
+            val = val[:-1]
+        elif val.endswith("'") and not val.startswith("'"):
+            val = val[:-1]
+
+        loaded[key] = val
+        if override or key not in os.environ:
+            os.environ[key] = val
+
+    return loaded
+
+
+# Automatically load .env on config import
+load_dotenv()
+
 
 # Roles a column can have
 ROLE_INCOME = "income"                    # earning, included in the workbook 'Total Amount'

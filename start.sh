@@ -40,8 +40,16 @@ if [ ! -f .venv/.req_hash ] || [ "$(cat .venv/.req_hash)" != "$WANT" ]; then
   echo "$WANT" > .venv/.req_hash
 fi
 
+# Load .env if present
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  [ -f .env ] && . ./.env
+  set +a
+fi
+
 # The app stays locked until an admin account exists - create it now (interactive).
-if [ ! -f config/admin.json ] && [ -z "${PAYSLIP_ADMIN_HASH:-}" ]; then
+if [ ! -f .env ] && [ ! -f config/admin.json ] && { [ -z "${PAYSLIP_ADMIN_USER:-}" ] || [ -z "${PAYSLIP_ADMIN_HASH:-}" ]; }; then
   if [ -t 0 ]; then
     echo "No admin account yet - let's create one."
     .venv/bin/python scripts/set_admin.py || exit 1

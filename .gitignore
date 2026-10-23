@@ -4,6 +4,7 @@ config/.auth_state.json
 .streamlit/secrets.toml
 *.env
 .env*
+.venv 
 
 # ---- salary data & generated files: NEVER commit
 output/*

@@ -6,7 +6,7 @@ This app handles salary figures, names and PAN numbers. Treat it like a bank log
 | Risk | Protection |
 |---|---|
 | Strangers opening the site | Everything sits behind an admin sign-in. If no admin exists the app stays **locked** (it never falls back to "open"). |
-| Password theft from the server | The password is never stored - only a salted **scrypt** hash. `config/admin.json` is owner-only (chmod 600) and git-ignored. |
+| Password theft from the server | The password is never stored - only a salted **scrypt** hash. Secrets are protected in `.env` (owner-only permissions, git-ignored) instead of storing credentials in `config/admin.json`. |
 | Password guessing | After 5 wrong attempts sign-in pauses (30 s, doubling up to 1 h). The pause is global and survives restarts, so opening new tabs does not help. Wrong user and wrong password give the same message and take the same time. |
 | Stolen password | Optional **authenticator-app code** (TOTP). Each code works once (replay blocked). Strongly recommended. |
 | Walk-away / shared computer | Auto sign-out after 20 idle minutes, hard limit 8 hours, **Sign out** button wipes the session and cached workbook. Refreshing the page also signs you out (deliberate). |
@@ -14,7 +14,7 @@ This app handles salary figures, names and PAN numbers. Treat it like a bank log
 | Injected text (names, firm name) | Escaped before display; PDF text was already escaped. |
 | Logo upload | PNG/JPG only, 2 MB cap, pixel cap, re-encoded (metadata removed). |
 | Salary PDFs left on a server | With `PAYSLIP_HOSTED=1` generated files are auto-deleted after 24 h (`PAYSLIP_PURGE_HOURS`). **Delete all generated payslips now** is always in the sidebar. |
-| Secrets in git | `.gitignore` blocks `output/`, `logs/`, `*.xlsx`, `*.pdf`, `admin.json`, `secrets.toml`. |
+| Secrets in git | `.gitignore` blocks `.env`, `*.env`, `output/`, `logs/`, `*.xlsx`, `*.pdf`, `admin.json`, `secrets.toml`. |
 | Logs | Record only that a sign-in failed/succeeded - never passwords, names or amounts. |
 
 ## Before you push to GitHub
