@@ -1,0 +1,24 @@
+# ---- secrets & credentials: NEVER commit
+config/admin.json
+config/.auth_state.json
+.streamlit/secrets.toml
+*.env
+.env*
+
+# ---- salary data & generated files: NEVER commit
+output/*
+!output/.gitkeep
+logs/*
+!logs/.gitkeep
+*.xlsx
+*.xlsm
+*.xls
+*.pdf
+
+# ---- local clutter
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.payslip.pid
+.payslip.port

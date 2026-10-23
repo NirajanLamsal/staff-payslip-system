@@ -1,0 +1,15 @@
+{
+  "firm_name": "hello health international",
+  "firm_address": "",
+  "logo_path": "config/logo.png",
+  "calendar": "BS",
+  "digit_grouping": "nepali",
+  "capitalise_names": true,
+  "show_pan_on_payslip": true,
+  "show_amount_in_words": true,
+  "show_attendance": true,
+  "show_signatures": true,
+  "tolerance": "0.10",
+  "column_roles": {},
+  "labels": {}
+}

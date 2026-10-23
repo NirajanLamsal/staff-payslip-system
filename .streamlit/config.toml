@@ -1,0 +1,29 @@
+[server]
+# address = "127.0.0.1"          # Commented out for cloud hosting compatibility (Streamlit Cloud, Render, Hugging Face).
+                                # Local start scripts (start_windows.bat, start.sh) already pass --server.address 127.0.0.1.
+port = 8501
+headless = true
+fileWatcherType = "none"
+enableCORS = true
+enableXsrfProtection = true
+enableStaticServing = false
+maxUploadSize = 10             # MB - a payroll workbook is far smaller
+
+[browser]
+gatherUsageStats = false
+# serverAddress = "127.0.0.1"
+
+[client]
+toolbarMode = "minimal"
+showErrorDetails = "none"      # never show stack traces in the browser
+
+[logger]
+level = "warning"
+
+[theme]
+base = "dark"
+primaryColor = "#16B29D"
+backgroundColor = "#000000"
+secondaryBackgroundColor = "#09090A"
+textColor = "#ECECEE"
+font = "sans serif"
